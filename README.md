@@ -35,13 +35,7 @@ This project is designed as the essential first layer for building Kubernetes cl
 
 ## Quick Deployment
 
-### 1. Prerequisites
-```bash
-curl -fsSL https://get.opentofu.org | bash
-sudo apt install wireguard-tools jq
-```
-
-### 2. Initialize Deployment
+### 1. Initialize Deployment
 ```bash
 git clone https://github.com/mik-tf/tfgrid_6nodes
 cd tfgrid_6nodes/deployment
@@ -54,13 +48,13 @@ Edit `credentials.auto.tfvars` with:
 - Node IDs from TF Dashboard
 - Resource allocations
 
-### 3. Apply Configuration
+### 2. Apply Configuration
 ```bash
 tofu init
 tofu apply -auto-approve
 ```
 
-### 4. Network Validation
+### 3. Network Validation
 
 Check the IP addresses with `tofu show` and update the script template then run the script to generate a log.
 

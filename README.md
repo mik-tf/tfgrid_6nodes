@@ -1,4 +1,26 @@
-# ThreeFold Grid 6-Node Open Tofu Deployment
+<h1> ThreeFold Grid 6-Node Open Tofu Deployment</h1>
+
+<h2>Table of Contents</h2>
+
+- [Overview](#overview)
+- [Key Components](#key-components)
+  - [Network Architecture](#network-architecture)
+  - [Node Configuration](#node-configuration)
+- [Quick Deployment](#quick-deployment)
+  - [1. Initialize Deployment](#1-initialize-deployment)
+  - [2. Apply Configuration](#2-apply-configuration)
+  - [3. Network Validation](#3-network-validation)
+- [Customization Guide](#customization-guide)
+  - [Network Testing](#network-testing)
+  - [Resource Profiles](#resource-profiles)
+- [Operational Management](#operational-management)
+  - [Infrastructure Scaling](#infrastructure-scaling)
+  - [Secure Teardown](#secure-teardown)
+- [Building On This Foundation](#building-on-this-foundation)
+  - [Common Next Steps](#common-next-steps)
+- [License](#license)
+
+---
 
 ## Overview
 
@@ -132,7 +154,7 @@ ssh 10.1.3.2 "ceph-deploy new node_{0..5}"
 docker stack deploy -c traefik.yml public_nodes
 ```
 
-## License & Support
+## License
 
 **Apache 2.0** - Full text in [LICENSE](./LICENSE) 
 

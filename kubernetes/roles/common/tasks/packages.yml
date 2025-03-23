@@ -1,0 +1,4 @@
+- name: Install system dependencies
+  apt:
+    name: [curl, apt-transport-https, ca-certificates, software-properties-common]
+    state: present

@@ -1,40 +1,63 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
-declare -A mycelium_ips=(
-    ["node_0"]="42f:208e:987:118e:ff0f:89b4:bacb:e678"
-    ["node_1"]="451:39dd:daf9:1c4f:ff0f:bc:c1e3:fb62"
-    ["node_2"]="59e:dac6:610a:681d:ff0f:667f:8bd3:4ab7"
-    ["node_3"]="4ed:302b:6602:c6b8:ff0f:7f96:9811:8a48"
-    ["node_4"]="420:b71c:3b5a:e0dc:ff0f:b756:acc:90c5"
-    ["node_5"]="546:cd0:ef75:3815:ff0f:ef34:481e:1504"
-)
+# Check dependencies
+command -v jq >/dev/null 2>&1 || { 
+    echo >&2 "ERROR: jq required but not found. Install with: 
+    sudo apt install jq || brew install jq";
+    exit 1;
+}
 
-declare -A wireguard_ips=(
-    ["node_0"]="10.1.3.2"
-    ["node_1"]="10.1.4.2"
-    ["node_2"]="10.1.5.2"
-    ["node_3"]="10.1.6.2"
-    ["node_4"]="10.1.7.2"
-    ["node_5"]="10.1.8.2"
-)
+command -v tofu >/dev/null 2>&1 || {
+    echo >&2 "ERROR: tofu (OpenTofu) required but not found.";
+    exit 1;
+}
 
-declare -A public_ips=(
-    ["node_3"]="185.69.167.158"
-    ["node_4"]="185.69.166.173"
-    ["node_5"]="185.69.167.196"
-)
+# Get script directory
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+DEPLOYMENT_DIR="$SCRIPT_DIR/../deployment"
 
+# Declare associative arrays for IP addresses
+declare -A mycelium_ips=()
+declare -A wireguard_ips=()
+declare -A public_ips=()
+
+# Fetch IP addresses from Terraform outputs
+echo "Fetching IP addresses from Terraform..."
+terraform_output=$(tofu -chdir="$DEPLOYMENT_DIR" show -json)
+
+# Parse Mycelium IPs (IPv6)
+while IFS="=" read -r key value; do
+    mycelium_ips["$key"]="$value"
+done < <(jq -r '.values.outputs.mycelium_ips.value // empty | to_entries[] | "\(.key)=\(.value)"' <<< "$terraform_output")
+
+# Parse WireGuard IPs (IPv4)
+while IFS="=" read -r key value; do
+    wireguard_ips["$key"]="$value"
+done < <(jq -r '.values.outputs.wireguard_ips.value // empty | to_entries[] | "\(.key)=\(.value)"' <<< "$terraform_output")
+
+# Parse Public IPs (IPv4 - may not exist for all nodes)
+while IFS="=" read -r key value; do
+    public_ips["$key"]="$value"
+done < <(jq -r '.values.outputs.public_ips.value // empty | to_entries[] | "\(.key)=\(.value)"' <<< "$terraform_output")
+
+# Perform ping tests
 for node in "${!mycelium_ips[@]}"; do
+    # Mycelium (IPv6) check
     echo "=== Pinging Mycelium (${node}) ${mycelium_ips[$node]} ==="
-    ping6 -c 5 "${mycelium_ips[$node]}"
+    ping6 -c 5 "${mycelium_ips[$node]}" || true
     
+    # WireGuard (IPv4) check
     echo -e "\n=== Pinging WireGuard (${node}) ${wireguard_ips[$node]} ==="
-    ping -c 5 "${wireguard_ips[$node]}"
+    ping -c 5 "${wireguard_ips[$node]}" || true
     
+    # Public IP check (if exists)
     if [ "${public_ips[$node]+exists}" ]; then
         echo -e "\n=== Pinging Public (${node}) ${public_ips[$node]} ==="
-        ping -c 5 "${public_ips[$node]}"
+        ping -c 5 "${public_ips[$node]}" || true
     fi
     
     echo -e "\n"
 done
+
+echo "All ping tests completed!"

@@ -1,0 +1,21 @@
+---
+- name: Configure Kubernetes Cluster
+  hosts: all
+  become: yes
+  roles:
+    - role: common
+      tags: [base]
+
+- name: Configure Control Plane
+  hosts: kube_control
+  become: yes
+  roles:
+    - role: control-plane
+      tags: [control]
+
+- name: Configure Worker Nodes
+  hosts: kube_node
+  become: yes
+  roles:
+    - role: worker-node
+      tags: [worker]

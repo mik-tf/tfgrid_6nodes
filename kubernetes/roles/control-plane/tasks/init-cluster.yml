@@ -1,0 +1,17 @@
+- name: Initialize first control plane
+  command: kubeadm init --config /root/kubeadm-config.yaml
+  when: inventory_hostname == "node_0"
+
+- name: Copy admin config
+  command: mkdir -p $HOME/.kube
+  changed_when: false
+
+- copy:
+    src: /etc/kubernetes/admin.conf
+    dest: /root/.kube/config
+    remote_src: yes
+  when: inventory_hostname == "node_0"
+
+- name: Install CNI plugin (Calico)
+  command: kubectl apply -f https://docs.projectcalico.org/manifests/calico.yaml
+  when: inventory_hostname == "node_0"

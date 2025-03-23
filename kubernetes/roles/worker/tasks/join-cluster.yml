@@ -1,0 +1,13 @@
+# Filepath: ./roles/worker/tasks/join-cluster.yml
+- name: Get join command from control plane
+  command: kubeadm token create --print-join-command --kubeconfig /etc/kubernetes/admin.conf
+  register: join_command
+  delegate_to: node1
+  run_once: yes
+  become: true
+
+- name: Join worker to cluster
+  command: "{{ join_command.stdout }} --ignore-preflight-errors=all"
+  become: true
+  async: 120
+  poll: 10

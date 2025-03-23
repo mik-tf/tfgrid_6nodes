@@ -6,18 +6,20 @@
     kubernetes_version: 32
   roles:
     - role: common
-      tags: [base]
+      tags: [common]
 
 - name: Configure Control Plane
   hosts: kube_control
   become: yes
+  vars:
+    kubernetes_version: 32
   roles:
-    - role: control-plane
+    - role: control
       tags: [control]
 
 - name: Configure Worker Nodes
   hosts: kube_node
   become: yes
   roles:
-    - role: worker-node
+    - role: worker
       tags: [worker]

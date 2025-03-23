@@ -1,32 +1,115 @@
+---
 - name: Disable swap
   command: swapoff -a
   changed_when: false
+  become: true
 
-- name: Update apt cache
-  apt:
-    update_cache: yes
-    cache_valid_time: 3600
-
-- name: Install base packages
-  apt:
-    name: ["docker.io", "kubelet=1.29.0-00", "kubectl=1.29.0-00", "kubeadm=1.29.0-00"]
+- name: Comment out swap in fstab
+  lineinfile:
+    path: /etc/fstab
+    regexp: '^(/.*swap.*)$'
+    line: '# \1'
+    backrefs: yes
     state: present
-    force: yes
+  become: true
 
-- name: Configure Docker daemon
-  copy:
-    dest: /etc/docker/daemon.json
-    content: |
-      {
-        "exec-opts": ["native.cgroupdriver=systemd"],
-        "log-driver": "json-file",
-        "log-opts": {
-          "max-size": "100m"
-        },
-        "storage-driver": "overlay2"
-      }
+- name: Ensure keyring directory exists (Debian/Ubuntu)
+  file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: 0755
+  when: ansible_distribution in ['Debian', 'Ubuntu']
+  become: true
 
-- name: Reload Docker
+- name: Download and import Kubernetes GPG key
+  shell: |
+    curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.{{ kubernetes_version }}/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+  args:
+    creates: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+  when: ansible_distribution in ['Debian', 'Ubuntu']
+  become: true
+
+- name: Add Kubernetes repository (Debian/Ubuntu)
+  apt_repository:
+    repo: "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.{{ kubernetes_version }}/deb/ /"
+    state: present
+    filename: kubernetes
+    update_cache: yes
+  when: ansible_distribution in ['Debian', 'Ubuntu']
+  become: true
+
+- name: Add Kubernetes repository (Red Hat)
+  yum_repository:
+    name: kubernetes
+    baseurl: https://pkgs.k8s.io/core:/stable:/v1.{{ kubernetes_version }}/rpm/
+    gpgcheck: yes
+    repo_gpgcheck: yes
+    gpgkey: https://pkgs.k8s.io/core:/stable:/v1.{{ kubernetes_version }}/rpm/Release.key
+    enabled: yes
+  when: ansible_distribution in ['RedHat', 'CentOS', 'Fedora']
+  become: true
+
+- name: Install Kubernetes components (Debian/Ubuntu)
+  apt:
+    name:
+      - kubelet
+      - kubectl
+      - kubeadm
+      - containerd
+    state: present
+    update_cache: yes
+  when: ansible_distribution in ['Debian', 'Ubuntu']
+  become: true
+
+- name: Install Kubernetes components (Red Hat)
+  yum:
+    name:
+      - kubelet
+      - kubectl
+      - kubeadm
+      - containerd
+    state: present
+    update_cache: yes
+  when: ansible_distribution in ['RedHat', 'CentOS', 'Fedora']
+  become: true
+
+- name: Hold Kubernetes packages (Debian/Ubuntu)
+  shell: |
+    apt-mark hold kubelet kubectl kubeadm
+  when: ansible_distribution in ['Debian', 'Ubuntu']
+  become: true
+
+- name: Configure containerd
+  blockinfile:
+    path: /etc/containerd/config.toml
+    create: yes
+    marker: "# {mark} ANSIBLE MANAGED BLOCK"
+    block: |
+      version = 2
+      [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
+        runtime_type = "io.containerd.runc.v2"
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
+          SystemdCgroup = true
+  become: true
+
+- name: Restart containerd
   systemd:
-    name: docker
-    state: reloaded
+    name: containerd
+    state: restarted
+    daemon_reload: yes
+  become: true
+
+- name: Configure kubelet cgroup driver
+  lineinfile:
+    path: /etc/default/kubelet
+    line: 'KUBELET_EXTRA_ARGS=--cgroup-driver=systemd'
+    create: yes
+    mode: 0644
+  become: true
+
+- name: Enable and start kubelet
+  systemd:
+    name: kubelet
+    enabled: yes
+    state: started
+  become: true

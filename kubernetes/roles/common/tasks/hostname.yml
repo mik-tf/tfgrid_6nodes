@@ -1,0 +1,8 @@
+---
+- name: Add entry to /etc/hosts
+  lineinfile:
+    path: /etc/hosts
+    line: "127.0.1.1 ubuntu-noble"
+    create: true
+    state: present
+    regexp: '^127\.0\.1\.1\s+ubuntu-noble'

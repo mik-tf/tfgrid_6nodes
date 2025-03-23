@@ -34,14 +34,14 @@ ansible all -m ping
 
 3. Run the playbook:
 ```bash
-ansible-playbook k8s-cluster.yml
+ansible-playbook k8s-cluster.yml -t common,control,worker
 ```
 
 ## Verification
 
 Check cluster status from node_0:
 ```bash
-ansible node_0 -i inventory.ini -a "kubectl get nodes -o wide"
+ansible -i inventory.ini kube_control -m command -a "kubectl get nodes"
 ```
 
 Expected output:

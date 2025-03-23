@@ -3,6 +3,7 @@
 <h2>Table of Contents</h2>
 
 - [Overview](#overview)
+- [Kubernetes Deployment](#kubernetes-deployment)
 - [Key Components](#key-components)
   - [Network Architecture](#network-architecture)
   - [Node Configuration](#node-configuration)
@@ -37,6 +38,14 @@ This OpenTofu project establishes a production-ready foundation for decentralize
 - Network validation template script
 
 This project is designed as the essential first layer for building Kubernetes clusters, distributed storage systems, or HA application deployments.
+
+## Kubernetes Deployment
+
+For a Kubernetes deployment on top of this infrastructure, run:
+
+```
+bash ../scripts./deploy.sh
+```
 
 ## Key Components
 

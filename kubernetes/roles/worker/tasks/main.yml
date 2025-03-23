@@ -1,11 +1,12 @@
 ---
-- name: Get join command from control node
-  command: "cat /tmp/join-command"
-  register: join_command
-  run_once: yes
-  delegate_to: node1
+- name: Get join command from primary control node
+  slurp:
+    src: /tmp/control-join-command
+  register: worker_join_command
+  delegate_to: "{{ primary_control_node }}"
 
-- name: Join cluster
-  command: "{{ join_command.stdout }}"
+- name: Join worker nodes to cluster
+  command: "{{ worker_join_command.content | b64decode }}"
   async: 120
   poll: 10
+  become: true

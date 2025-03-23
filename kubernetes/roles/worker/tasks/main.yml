@@ -1,2 +1,11 @@
 ---
-- include_tasks: join-cluster.yml
+- name: Get join command from control node
+  command: "cat /tmp/join-command"
+  register: join_command
+  run_once: yes
+  delegate_to: node1
+
+- name: Join cluster
+  command: "{{ join_command.stdout }}"
+  async: 120
+  poll: 10

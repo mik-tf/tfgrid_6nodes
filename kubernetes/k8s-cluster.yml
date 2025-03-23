@@ -1,9 +1,7 @@
 ---
-- name: Configure Kubernetes Cluster
+- name: Configure Common
   hosts: all
   become: yes
-  vars:
-    kubernetes_version: 32
   roles:
     - role: common
       tags: [common]
@@ -11,13 +9,11 @@
 - name: Configure Control Plane
   hosts: kube_control
   become: yes
-  vars:
-    kubernetes_version: 32
   roles:
     - role: control
       tags: [control]
 
-- name: Configure Worker Nodes
+- name: Join Worker Nodes
   hosts: kube_node
   become: yes
   roles:

@@ -18,35 +18,21 @@
     path: /etc/apt/keyrings
     state: directory
     mode: 0755
-  when: ansible_distribution in ['Debian', 'Ubuntu']
   become: true
 
 - name: Download and import Kubernetes GPG key
   shell: |
-    curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.{{ kubernetes_version }}/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+    curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.32/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
   args:
     creates: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
-  when: ansible_distribution in ['Debian', 'Ubuntu']
   become: true
 
 - name: Add Kubernetes repository (Debian/Ubuntu)
   apt_repository:
-    repo: "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.{{ kubernetes_version }}/deb/ /"
+    repo: "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.32/deb/ /"
     state: present
     filename: kubernetes
     update_cache: yes
-  when: ansible_distribution in ['Debian', 'Ubuntu']
-  become: true
-
-- name: Add Kubernetes repository (Red Hat)
-  yum_repository:
-    name: kubernetes
-    baseurl: https://pkgs.k8s.io/core:/stable:/v1.{{ kubernetes_version }}/rpm/
-    gpgcheck: yes
-    repo_gpgcheck: yes
-    gpgkey: https://pkgs.k8s.io/core:/stable:/v1.{{ kubernetes_version }}/rpm/Release.key
-    enabled: yes
-  when: ansible_distribution in ['RedHat', 'CentOS', 'Fedora']
   become: true
 
 - name: Install Kubernetes components (Debian/Ubuntu)
@@ -58,25 +44,11 @@
       - containerd
     state: present
     update_cache: yes
-  when: ansible_distribution in ['Debian', 'Ubuntu']
-  become: true
-
-- name: Install Kubernetes components (Red Hat)
-  yum:
-    name:
-      - kubelet
-      - kubectl
-      - kubeadm
-      - containerd
-    state: present
-    update_cache: yes
-  when: ansible_distribution in ['RedHat', 'CentOS', 'Fedora']
   become: true
 
 - name: Hold Kubernetes packages (Debian/Ubuntu)
   shell: |
     apt-mark hold kubelet kubectl kubeadm
-  when: ansible_distribution in ['Debian', 'Ubuntu']
   become: true
 
 - name: Configure containerd

@@ -41,4 +41,11 @@ tofu -chdir="$DEPLOYMENT_DIR" show -json | jq -r '
 echo -e "\n[kube_control:children]\ncontrol" >> "$OUTPUT_FILE"
 echo -e "\n[kube_node:children]\nworker" >> "$OUTPUT_FILE"
 
+# Rename nodes from node_0 to node1, node_1 to node2, etc.
+echo "Renaming nodes in inventory..."
+for i in {0..5}; do
+    new_num=$((i + 1))
+    sed -i "s/node_${i}/node${new_num}/g" "$OUTPUT_FILE"
+done
+
 echo "Inventory generated: $OUTPUT_FILE"

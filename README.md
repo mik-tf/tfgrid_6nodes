@@ -20,6 +20,7 @@
 - [Building On This Foundation](#building-on-this-foundation)
   - [Common Next Steps](#common-next-steps)
 - [License](#license)
+- [Clean Up Tofu](#clean-up-tofu)
 
 ---
 
@@ -166,6 +167,12 @@ docker stack deploy -c traefik.yml public_nodes
 ## License
 
 **Apache 2.0** - Full text in [LICENSE](./LICENSE) 
+
+## Clean Up Tofu
+
+``` 
+bash scripts/cleantf.sh
+```
 
 ---
 

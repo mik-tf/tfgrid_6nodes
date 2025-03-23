@@ -1,4 +1,8 @@
 ---
+- name: Install Flannel CNI
+  command: kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
+  when: inventory_hostname == primary_control_node
+  become: true
 - name: Check if cluster is initialized
   stat:
     path: /etc/kubernetes/admin.conf
@@ -27,11 +31,6 @@
   when: inventory_hostname == primary_control_node
   become: true
 
-- name: Install Flannel CNI
-  command: kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
-  when: inventory_hostname == primary_control_node
-  become: true
-
 - name: Generate join command (control plane)
   command: kubeadm token create --print-join-command
   register: control_join_command
@@ -40,8 +39,22 @@
 
 - name: Save control plane join command
   copy:
-    content: "{{ control_join_command.stdout }}"
+    content: "{{ init_result.stdout_lines | select('match', 'kubeadm join .* --control-plane') | first }}"
     dest: /tmp/control-join-command
+    mode: 0600
+  when: inventory_hostname == primary_control_node
+  become: true
+
+- name: Generate worker join command
+  command: kubeadm token create --print-join-command
+  register: worker_join_command
+  when: inventory_hostname == primary_control_node
+  become: true
+
+- name: Save worker join command
+  copy:
+    content: "{{ worker_join_command.stdout }}"
+    dest: /tmp/worker-join-command
     mode: 0600
   when: inventory_hostname == primary_control_node
   become: true

@@ -1,7 +1,7 @@
 ---
 - name: Get join command from primary control node
   slurp:
-    src: /tmp/control-join-command
+    src: /tmp/worker-join-command 
   register: worker_join_command
   delegate_to: "{{ primary_control_node }}"
 

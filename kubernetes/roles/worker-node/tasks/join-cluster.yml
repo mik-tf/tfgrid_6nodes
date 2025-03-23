@@ -1,7 +1,7 @@
 - name: Get join command from control plane
   command: kubeadm token create --print-join-command
   register: join_command
-  delegate_to: node_0
+  delegate_to: node1
   run_once: yes
 
 - name: Join worker to cluster

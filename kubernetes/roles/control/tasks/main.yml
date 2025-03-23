@@ -1,8 +1,37 @@
 ---
-- name: Install Flannel CNI
-  command: kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
+- name: Ensure kubelet is properly configured
+  block:
+    - name: Check if kubelet service file exists
+      stat:
+        path: /usr/lib/systemd/system/kubelet.service.d/10-kubeadm.conf
+      register: kubelet_service_file
+
+    - name: Ensure kubelet service file is configured correctly
+      blockinfile:
+        path: /usr/lib/systemd/system/kubelet.service.d/10-kubeadm.conf
+        create: yes
+        block: |
+          [Service]
+          Environment="KUBELET_KUBECONFIG_ARGS=--bootstrap-kubeconfig=/etc/kubernetes/bootstrap-kubelet.conf --kubeconfig=/etc/kubernetes/kubelet.conf"
+          Environment="KUBELET_CONFIG_ARGS=--config=/var/lib/kubelet/config.yaml"
+          Environment="KUBELET_KUBEADM_ARGS=--cgroup-driver=systemd --network-plugin=cni --pod-infra-container-image=k8s.gcr.io/pause:3.10"
+          ExecStart=
+          ExecStart=/usr/bin/kubelet $KUBELET_KUBECONFIG_ARGS $KUBELET_CONFIG_ARGS $KUBELET_KUBEADM_ARGS $KUBELET_EXTRA_ARGS
+      when: kubelet_service_file.stat.exists
+
+    - name: Reload systemd daemon
+      command: systemctl daemon-reload
+      when: kubelet_service_file.stat.exists
+
+    - name: Restart kubelet service
+      service:
+        name: kubelet
+        state: restarted
+        enabled: yes
+      when: kubelet_service_file.stat.exists
   when: inventory_hostname == primary_control_node
   become: true
+
 - name: Check if cluster is initialized
   stat:
     path: /etc/kubernetes/admin.conf
@@ -28,6 +57,11 @@
     src: /etc/kubernetes/admin.conf
     dest: /root/.kube/config
     remote_src: yes
+  when: inventory_hostname == primary_control_node
+  become: true
+
+- name: Install Flannel CNI
+  command: kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
   when: inventory_hostname == primary_control_node
   become: true
 

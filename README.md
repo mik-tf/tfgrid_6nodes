@@ -82,8 +82,7 @@ tofu apply -auto-approve
 ### 3. Set WireGuard
 
 ```
-cd ../scripts
-bash wg.sh
+bash ../scripts/wg.sh
 ```
 
 ### 4. Network Validation

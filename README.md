@@ -9,7 +9,8 @@
 - [Quick Deployment](#quick-deployment)
   - [1. Initialize Deployment](#1-initialize-deployment)
   - [2. Apply Configuration](#2-apply-configuration)
-  - [3. Network Validation](#3-network-validation)
+  - [3. Set WireGuard](#3-set-wireguard)
+  - [4. Network Validation](#4-network-validation)
 - [Customization Guide](#customization-guide)
   - [Network Testing](#network-testing)
   - [Resource Profiles](#resource-profiles)
@@ -72,16 +73,24 @@ Edit `credentials.auto.tfvars` with:
 
 ### 2. Apply Configuration
 ```bash
+cd deployments
 tofu init
 tofu apply -auto-approve
 ```
 
-### 3. Network Validation
+### 3. Set WireGuard
+
+```
+cd ../scripts
+bash wg.sh
+```
+
+### 4. Network Validation
 
 Check the IP addresses with `tofu show` and update the script template then run the script to generate a log.
 
 ```bash
-../scripts/ping.sh > network-test-$(date +%s).log
+bash ../scripts/ping.sh > network-test-$(date +%s).log
 ```
 
 Sample output verifies connectivity across all layers:

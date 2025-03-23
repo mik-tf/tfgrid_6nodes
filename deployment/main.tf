@@ -84,6 +84,7 @@ resource "grid_deployment" "nodes" {
       name        = "disk_${each.key}"
       mount_point = "/data"
     }
+    rootfs_size = 20480
   }
 }
 

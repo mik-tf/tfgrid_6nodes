@@ -2,10 +2,13 @@
 all_files_text.txt
 
 # Terraform
-.terraform.lock.hcl
+.terraform*
 state.json
 terraform.tfstate
 terraform.tfstate.backup
 credentials.auto.tfvars
 .terraform/
 archive/
+
+# Test Files
+network-test-*

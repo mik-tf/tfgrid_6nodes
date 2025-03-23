@@ -23,17 +23,18 @@ worker
 
 1. Generate inventory from the `kubernetes` directory
 ```
+cd ../kubernetes
 bash ../scripts/generate-inventory.sh
 ```
 
 2. Verify connectivity:
 ```bash
-ansible all -m ping -i inventory.ini
+ansible all -m ping
 ```
 
 3. Run the playbook:
 ```bash
-ansible-playbook -i inventory.ini k8s-cluster.yml
+ansible-playbook k8s-cluster.yml
 ```
 
 ## Verification

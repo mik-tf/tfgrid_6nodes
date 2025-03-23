@@ -2,6 +2,8 @@
 - name: Configure Kubernetes Cluster
   hosts: all
   become: yes
+  vars:
+    kubernetes_version: 32
   roles:
     - role: common
       tags: [base]

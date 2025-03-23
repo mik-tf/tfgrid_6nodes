@@ -1,0 +1,32 @@
+- name: Disable swap
+  command: swapoff -a
+  changed_when: false
+
+- name: Update apt cache
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+
+- name: Install base packages
+  apt:
+    name: ["docker.io", "kubelet=1.29.0-00", "kubectl=1.29.0-00", "kubeadm=1.29.0-00"]
+    state: present
+    force: yes
+
+- name: Configure Docker daemon
+  copy:
+    dest: /etc/docker/daemon.json
+    content: |
+      {
+        "exec-opts": ["native.cgroupdriver=systemd"],
+        "log-driver": "json-file",
+        "log-opts": {
+          "max-size": "100m"
+        },
+        "storage-driver": "overlay2"
+      }
+
+- name: Reload Docker
+  systemd:
+    name: docker
+    state: reloaded

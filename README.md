@@ -162,3 +162,4 @@ docker stack deploy -c traefik.yml public_nodes
 
 > **Important**: This deployment establishes the infrastructure layer only.  
 > Subsequent application layers should maintain separate state management.
+> Consult the [docs](./docs/ansible_post_deployment.md) for more information.

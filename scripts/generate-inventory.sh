@@ -48,4 +48,9 @@ for i in {0..5}; do
     sed -i "s/node_${i}/node${new_num}/g" "$OUTPUT_FILE"
 done
 
+# Add all:vars (Explicit Python Interpreter)
+echo -e "\n[all:vars]" >> "$OUTPUT_FILE"
+echo "ansible_python_interpreter=/usr/bin/python3.12" >> "$OUTPUT_FILE"
+
 echo "Inventory generated: $OUTPUT_FILE"
+

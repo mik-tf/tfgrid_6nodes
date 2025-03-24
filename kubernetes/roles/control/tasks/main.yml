@@ -14,7 +14,7 @@
           [Service]
           Environment="KUBELET_KUBECONFIG_ARGS=--bootstrap-kubeconfig=/etc/kubernetes/bootstrap-kubelet.conf --kubeconfig=/etc/kubernetes/kubelet.conf"
           Environment="KUBELET_CONFIG_ARGS=--config=/var/lib/kubelet/config.yaml"
-          Environment="KUBELET_KUBEADM_ARGS=--cgroup-driver=systemd --network-plugin=cni --pod-infra-container-image=k8s.gcr.io/pause:3.10"
+          Environment="KUBELET_KUBEADM_ARGS=--cgroup-driver=systemd --network-plugin=cni --pod-infra-container-image=registry.k8s.io/pause:3.10"
           ExecStart=
           ExecStart=/usr/bin/kubelet $KUBELET_KUBECONFIG_ARGS $KUBELET_CONFIG_ARGS $KUBELET_KUBEADM_ARGS $KUBELET_EXTRA_ARGS
       when: kubelet_service_file.stat.exists
@@ -46,7 +46,7 @@
       --upload-certs
   args:
     creates: /etc/kubernetes/admin.conf
-  when: 
+  when:
     - inventory_hostname == primary_control_node
     - not cluster_initialized.stat.exists
   become: true
@@ -61,7 +61,7 @@
   become: true
 
 - name: Install Flannel CNI
-  command: kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
+  command: kubectl apply -f https://raw.githubusercontent.com/flannel-io/flannel/master/Documentation/kube-flannel.yml
   when: inventory_hostname == primary_control_node
   become: true
 
@@ -73,7 +73,7 @@
 
 - name: Save control plane join command
   copy:
-    content: "{{ init_result.stdout_lines | select('match', 'kubeadm join .* --control-plane') | first }}"
+    content: "{{ control_join_command.stdout }}"
     dest: /tmp/control-join-command
     mode: 0600
   when: inventory_hostname == primary_control_node
@@ -93,14 +93,21 @@
   when: inventory_hostname == primary_control_node
   become: true
 
+- name: Set primary_control_node fact for delegation
+  set_fact:
+    primary_control_node_for_delegation: "{{ primary_control_node }}" 
+  delegate_to: "{{ primary_control_node }}" 
+  delegate_facts: true  
+  when: inventory_hostname == primary_control_node
+
 - name: Get join command for secondary control nodes
   slurp:
     src: /tmp/control-join-command
-  register: control_join_command
+  register: control_join_command_secondary
   when: inventory_hostname != primary_control_node
-  delegate_to: "{{ primary_control_node }}"
+  delegate_to: "{{ hostvars[primary_control_node]['ansible_hostname'] }}"
 
 - name: Join control plane nodes
-  command: "{{ control_join_command.content | b64decode }} --control-plane"
+  command: "{{ control_join_command_secondary.content | b64decode }} --control-plane"
   when: inventory_hostname != primary_control_node
   become: true

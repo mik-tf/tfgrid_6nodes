@@ -1,0 +1,117 @@
+---
+- name: Check if pip is installed
+  command: which pip3
+  register: pip_check
+  ignore_errors: true
+  changed_when: false
+
+- name: Install pip if not present
+  apt:
+    name: python3-pip
+    state: present
+    update_cache: yes
+  become: true
+  when: pip_check.rc != 0
+
+- name: Install tutor
+  pip:
+    name: "tutor<17.0.0"
+    state: present
+  become: true
+
+- name: Create tutor config directory
+  file:
+    path: /root/.local/share/tutor
+    state: directory
+    mode: '0755'
+  become: true
+
+- name: Create tutor config file
+  copy:
+    dest: /root/.local/share/tutor/config.yml
+    content: |
+      LMS_HOST: "{{ openedx_domain }}"
+      CMS_HOST: "studio.{{ openedx_domain }}"
+      ENABLE_HTTPS: true
+      PLATFORM_NAME: "Online School"
+      CONTACT_EMAIL: "admin@{{ openedx_domain }}"
+      K8S_NAMESPACE: openedx
+    mode: '0644'
+  become: true
+  when: inventory_hostname == primary_control_node
+
+- name: Install tutor k8s plugin
+  command: tutor plugins install k8s
+  become: true
+  when: inventory_hostname == primary_control_node
+
+- name: Enable tutor k8s plugin
+  command: tutor plugins enable k8s
+  become: true
+  when: inventory_hostname == primary_control_node
+
+- name: Initialize tutor k8s
+  command: tutor k8s init
+  become: true
+  when: inventory_hostname == primary_control_node
+
+- name: Create OpenEdX namespace
+  command: kubectl create namespace openedx
+  become: true
+  when: inventory_hostname == primary_control_node
+  ignore_errors: true
+
+- name: Configure load balancer for OpenEdX
+  copy:
+    dest: /root/openedx-ingress.yml
+    content: |
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: openedx-lb
+        namespace: openedx
+      spec:
+        type: LoadBalancer
+        externalIPs:
+          {% for ip in worker_public_ips %}
+          - {{ ip }}
+          {% endfor %}
+        ports:
+        - name: http
+          port: 80
+          targetPort: 80
+        - name: https
+          port: 443
+          targetPort: 443
+        selector:
+          app: nginx-ingress-controller
+    mode: '0644'
+  become: true
+  when: inventory_hostname == primary_control_node
+
+- name: Apply load balancer configuration
+  command: kubectl apply -f /root/openedx-ingress.yml
+  become: true
+  when: inventory_hostname == primary_control_node
+
+- name: Launch tutor k8s
+  command: tutor k8s launch
+  become: true
+  when: inventory_hostname == primary_control_node
+  register: tutor_launch
+  async: 1800
+  poll: 30
+
+- name: Create admin user
+  command: >
+    tutor k8s exec lms -- 
+    python manage.py lms manage_user 
+    --superuser 
+    --staff 
+    --username admin 
+    --password "{{ admin_password }}" 
+    --email "admin@{{ openedx_domain }}" 
+    --non-interactive
+  become: true
+  when: inventory_hostname == primary_control_node
+  ignore_errors: true

@@ -19,3 +19,14 @@
   roles:
     - role: worker
       tags: [worker]
+
+- name: Deploy OpenEdX with Tutor
+  hosts: kube_control
+  become: yes
+  roles:
+    - role: tutor
+      tags: [tutor]
+  vars:
+    openedx_domain: "{{ openedx_domain | default('onlineschool.com') }}"
+    admin_password: "{{ admin_password | default('securepassword') }}"
+    worker_public_ips: "{{ groups['kube_node'] | map('extract', hostvars, ['ansible_host']) | list }}"

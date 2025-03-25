@@ -29,7 +29,6 @@
         state: restarted
         enabled: yes
       when: kubelet_service_file.stat.exists
-  when: inventory_hostname == primary_control_node
   become: true
 
 - name: Check if cluster is initialized
@@ -38,12 +37,20 @@
   register: cluster_initialized
   become: true
 
+- name: Create .kube directory for root
+  file:
+    path: /root/.kube
+    state: directory
+    mode: '0755'
+  become: true
+
 - name: Initialize primary control plane
-  command: |
-    kubeadm init \
-      --control-plane-endpoint "{{ primary_control_ip }}" \
-      --pod-network-cidr=10.244.0.0/16 \
-      --upload-certs
+  command: >
+    kubeadm init 
+    --control-plane-endpoint "{{ primary_control_ip }}" 
+    --pod-network-cidr=10.244.0.0/16 
+    --upload-certs
+    --apiserver-advertise-address="{{ ansible_host }}"
   args:
     creates: /etc/kubernetes/admin.conf
   when:
@@ -65,8 +72,16 @@
   when: inventory_hostname == primary_control_node
   become: true
 
+- name: Extract certificate key
+  command: kubeadm init phase upload-certs --upload-certs
+  register: cert_key
+  when: inventory_hostname == primary_control_node
+  become: true
+
 - name: Generate join command (control plane)
-  command: kubeadm token create --print-join-command
+  shell: >
+    kubeadm token create --print-join-command | 
+    sed "s/$/ --control-plane --certificate-key $(echo '{{ cert_key.stdout_lines[-1] }}')/"
   register: control_join_command
   when: inventory_hostname == primary_control_node
   become: true
@@ -107,7 +122,27 @@
   when: inventory_hostname != primary_control_node
   delegate_to: "{{ hostvars[primary_control_node]['ansible_hostname'] }}"
 
+- name: Create .kube directory for secondary control nodes
+  file:
+    path: /root/.kube
+    state: directory
+    mode: '0755'
+  when: inventory_hostname != primary_control_node
+  become: true
+
 - name: Join control plane nodes
-  command: "{{ control_join_command_secondary.content | b64decode }} --control-plane"
+  command: "{{ control_join_command_secondary.content | b64decode }}"
+  when: inventory_hostname != primary_control_node
+  become: true
+  register: join_result
+  failed_when: join_result.rc != 0 and "already exists" not in join_result.stderr
+  async: 180
+  poll: 15
+
+- name: Copy admin.conf to secondary control nodes
+  copy:
+    src: /etc/kubernetes/admin.conf
+    dest: /root/.kube/config
+    remote_src: yes
   when: inventory_hostname != primary_control_node
   become: true

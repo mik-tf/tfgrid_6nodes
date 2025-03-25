@@ -3,23 +3,21 @@
 <h2>Table of Contents</h2>
 
 - [Overview](#overview)
-- [Kubernetes Deployment](#kubernetes-deployment)
+- [Quick Deployment](#quick-deployment)
 - [Key Components](#key-components)
   - [Network Architecture](#network-architecture)
   - [Node Configuration](#node-configuration)
-- [Quick Deployment](#quick-deployment)
+- [Detailed Deployment Steps](#detailed-deployment-steps)
   - [1. Initialize Deployment](#1-initialize-deployment)
-  - [2. Apply Configuration](#2-apply-configuration)
-  - [3. Set WireGuard](#3-set-wireguard)
-  - [4. Network Validation](#4-network-validation)
+  - [2. Deploy Everything](#2-deploy-everything)
+  - [3. Manual Deployment Options](#3-manual-deployment-options)
 - [Customization Guide](#customization-guide)
   - [Network Testing](#network-testing)
   - [Resource Profiles](#resource-profiles)
+  - [OpenEdX Configuration](#openedx-configuration)
 - [Operational Management](#operational-management)
   - [Infrastructure Scaling](#infrastructure-scaling)
   - [Secure Teardown](#secure-teardown)
-- [Building On This Foundation](#building-on-this-foundation)
-  - [Common Next Steps](#common-next-steps)
 - [License](#license)
 - [Clean Up Tofu](#clean-up-tofu)
 
@@ -36,16 +34,29 @@ This OpenTofu project establishes a production-ready foundation for decentralize
   - Public IPv4 for worker nodes
 - Customizable resource profiles
 - Network validation template script
+- High-availability Kubernetes cluster
+- OpenEdX platform deployment with Tutor
 
 This project is designed as the essential first layer for building Kubernetes clusters, distributed storage systems, or HA application deployments.
 
-## Kubernetes Deployment
+## Quick Deployment
 
-For a Kubernetes deployment on top of this infrastructure, run:
+For a complete end-to-end deployment including infrastructure, Kubernetes, and OpenEdX:
 
+```bash
+# Deploy with default domain (onlineschool.com)
+bash scripts/deploy.sh
+
+# Deploy with custom domain
+bash scripts/deploy.sh yourdomain.com
 ```
-bash ../scripts./deploy.sh
-```
+
+This single command will:
+1. Deploy the infrastructure with Tofu
+2. Configure WireGuard networking
+3. Deploy Kubernetes across all 6 nodes
+4. Deploy OpenEdX with Tutor using your domain
+5. Provide DNS configuration guidance
 
 ## Key Components
 
@@ -66,7 +77,7 @@ bash ../scripts./deploy.sh
     └── Resource profile: 4vCPU/4GB RAM/20GB Disk
 ```
 
-## Quick Deployment
+## Detailed Deployment Steps
 
 ### 1. Initialize Deployment
 ```bash
@@ -81,37 +92,55 @@ Edit `credentials.auto.tfvars` with:
 - Node IDs from TF Dashboard
 - Resource allocations
 
-### 2. Apply Configuration
-```bash
-cd deployments
-tofu init
-tofu apply -auto-approve
-```
+### 2. Deploy Everything
 
-### 3. Set WireGuard
-
-```
-bash ../scripts/wg.sh
-```
-
-### 4. Network Validation
-
-Check the IP addresses with `tofu show` and update the script template then run the script to generate a log.
+Run the deployment script with an optional custom domain:
 
 ```bash
-bash ../scripts/ping.sh > network-test-$(date +%s).log
+# Deploy with default domain (onlineschool.com)
+bash scripts/deploy.sh
+
+# Deploy with custom domain
+bash scripts/deploy.sh yourdomain.com
 ```
 
-Sample output verifies connectivity across all layers:
-```text
-=== Mycelium (node_0: 42f:208e:987:118e:ff0f:89b4:bacb:e678) ===
-64 bytes from 42f:208e:987:118e:ff0f:89b4:bacb:e678: icmp_seq=1 ttl=64 time=1.23 ms
+The script will automatically:
+- Deploy the infrastructure with Tofu
+- Set up WireGuard networking
+- Generate the Ansible inventory
+- Deploy Kubernetes across all nodes
+- Deploy OpenEdX with Tutor
+- Configure DNS settings for your domain
 
-=== WireGuard (node_0: 10.1.3.2) ===
-64 bytes from 10.1.3.2: icmp_seq=1 ttl=64 time=1.05 ms
+After deployment completes, you'll see:
+- OpenEdX URL: https://yourdomain.com
+- Studio URL: https://studio.yourdomain.com
+- Admin credentials
 
-=== Public IP (node_3: 185.69.167.158) ===
-64 bytes from 185.69.167.158: icmp_seq=1 ttl=64 time=15.3 ms
+### 3. Manual Deployment Options
+
+If you prefer to run steps individually:
+
+```bash
+# Deploy infrastructure only
+cd deployment
+tofu init && tofu apply -auto-approve
+
+# Set up WireGuard
+bash scripts/wg.sh
+
+# Generate inventory
+bash scripts/generate-inventory.sh
+
+# Deploy Kubernetes only
+cd kubernetes
+ansible-playbook -i inventory.ini k8s-cluster.yml --tags common,control,worker
+
+# Deploy OpenEdX only with custom domain
+ansible-playbook -i inventory.ini k8s-cluster.yml --tags tutor -e "openedx_domain=yourdomain.com"
+
+# Configure DNS
+bash scripts/configure-dns.sh yourdomain.com
 ```
 
 ## Customization Guide
@@ -138,6 +167,38 @@ worker_mem = 16384
 worker_disk = 500
 ```
 
+### OpenEdX Configuration
+
+Customize OpenEdX deployment by passing parameters:
+
+```bash
+# Using deploy.sh with custom domain
+bash scripts/deploy.sh yourdomain.com
+
+# Using Ansible directly with custom domain and admin password
+ansible-playbook -i inventory.ini k8s-cluster.yml --tags tutor \
+  -e "openedx_domain=yourdomain.com" \
+  -e "admin_password=your_secure_password"
+```
+
+You can also edit the default values in `kubernetes/k8s-cluster.yml`:
+
+```yaml
+vars:
+  openedx_domain: "{{ openedx_domain | default('onlineschool.com') }}"  # Default domain
+  admin_password: "{{ admin_password | default('securepassword') }}"    # Default password
+```
+
+Additional Tutor configurations can be added to the `tutor` role:
+
+```bash
+# Edit Tutor configuration
+vi kubernetes/roles/tutor/tasks/main.yml
+
+# Apply changes
+ansible-playbook -i inventory.ini k8s-cluster.yml --tags tutor
+```
+
 ## Operational Management
 
 ### Infrastructure Scaling
@@ -152,24 +213,6 @@ tofu apply -refresh=false
 tofu destroy -auto-approve
 wg-quick down tfgrid
 rm /etc/wireguard/tfgrid.conf
-```
-
-## Building On This Foundation
-
-### Common Next Steps
-1. **Kubernetes Deployment**
-```bash
-ansible-playbook -i wireguard_ips k8s-cluster.yml
-```
-
-2. **Distributed Storage**
-```bash
-ssh 10.1.3.2 "ceph-deploy new node_{0..5}"
-```
-
-3. **HA Application Stack**
-```bash
-docker stack deploy -c traefik.yml public_nodes
 ```
 
 ## License

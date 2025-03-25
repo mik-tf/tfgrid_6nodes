@@ -1,12 +1,18 @@
 ---
+- name: Set primary_control_node fact
+  set_fact:
+    primary_control_node_for_delegation: "{{ primary_control_node }}"
+
 - name: Get join command from primary control node
   slurp:
     src: /tmp/worker-join-command
   register: worker_join_command
-  delegate_to: "{{ hostvars[primary_control_node_for_delegation]['ansible_hostname'] }}"
+  delegate_to: "{{ hostvars[primary_control_node]['ansible_hostname'] }}"
 
 - name: Join worker nodes to cluster
   command: "{{ worker_join_command.content | b64decode }}"
-  async: 120
-  poll: 10
+  async: 180
+  poll: 15
   become: true
+  register: join_result
+  failed_when: join_result.rc != 0 and "already exists" not in join_result.stderr

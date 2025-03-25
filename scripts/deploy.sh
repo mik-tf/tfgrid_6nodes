@@ -7,6 +7,10 @@ set -e
 TF_CONFIG_DIR_DEPLOYMENT="$(realpath ../deployment)"  # Or wherever your .tf files are
 TF_CONFIG_DIR_KUBERNETES="$(realpath ../kubernetes)"  # Or wherever your .tf files are
 
+# Get domain from command line argument or use default
+DOMAIN=${1:-"onlineschool.com"}
+echo "Using domain: $DOMAIN"
+
 # --- Cleanup (if needed) ---
 cd "$TF_CONFIG_DIR_DEPLOYMENT" || exit 1  # Exit if cd fails
 # Example: Destroy the 'clean' resources (adapt to your actual setup)
@@ -57,11 +61,31 @@ if ! ansible_ping; then
     exit 1
 fi
 
-
+# Deploy Kubernetes first
+echo "Deploying Kubernetes cluster..."
 if ! ansible-playbook k8s-cluster.yml -t common,control,worker; then
-  echo "Ansible playbook failed!"
+  echo "Kubernetes deployment failed!"
   # Add additional error handling/notification here
   exit 1
 fi
 
+# Wait for Kubernetes to stabilize
+echo "Waiting for Kubernetes cluster to stabilize (60 seconds)..."
+sleep 60
+
+# Deploy OpenEdX with Tutor
+echo "Deploying OpenEdX with Tutor on domain $DOMAIN..."
+if ! ansible-playbook k8s-cluster.yml -t tutor -e "openedx_domain=$DOMAIN"; then
+  echo "OpenEdX deployment failed!"
+  # Add additional error handling/notification here
+  exit 1
+fi
+
+# Configure DNS
+echo "Configuring DNS for OpenEdX ($DOMAIN)..."
+bash ../scripts/configure-dns.sh "$DOMAIN"
+
 echo "Deployment completed successfully!"
+echo "OpenEdX will be available at: https://$DOMAIN"
+echo "Studio will be available at: https://studio.$DOMAIN"
+echo "Admin credentials: username=admin, password=securepassword"

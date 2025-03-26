@@ -107,6 +107,39 @@
     replace: 'SystemdCgroup = true'
   become: true
 
+- name: Ensure CRI plugin is enabled in containerd config
+  lineinfile:
+    path: /etc/containerd/config.toml
+    regexp: 'disabled_plugins = \["cri"\]'
+    line: '#disabled_plugins = ["cri"]'
+    state: present
+  become: true
+
+- name: Update sandbox_image in containerd config
+  replace:
+    path: /etc/containerd/config.toml
+    regexp: 'sandbox_image = "registry.k8s.io/pause:3.8"'
+    replace: 'sandbox_image = "registry.k8s.io/pause:3.10"'
+  become: true
+
+- name: Set proper permissions for containerd data directory
+  file:
+    path: /var/lib/containerd
+    state: directory
+    mode: '0755'
+    owner: root
+    group: root
+    recurse: yes
+  become: true
+
+- name: Configure containerd to use native snapshotter
+  lineinfile:
+    path: /etc/containerd/config.toml
+    regexp: '^\s+snapshotter = "overlayfs"'
+    line: '          snapshotter = "native"'
+    state: present
+  become: true
+
 - name: Restart containerd
   systemd:
     name: containerd

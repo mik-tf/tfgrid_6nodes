@@ -2,10 +2,14 @@
 
 set -e
 
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+
 # --- Configuration ---
 # Define the path to your Terraform/Tofu configuration directory
-TF_CONFIG_DIR_DEPLOYMENT="$(realpath ../deployment)"  # Or wherever your .tf files are
-TF_CONFIG_DIR_KUBERNETES="$(realpath ../kubernetes)"  # Or wherever your .tf files are
+TF_CONFIG_DIR_DEPLOYMENT="${REPO_ROOT}/deployment"  # Absolute path to deployment directory
+TF_CONFIG_DIR_KUBERNETES="${REPO_ROOT}/kubernetes"  # Absolute path to kubernetes directory
 
 # Get domain from command line argument or use default
 DOMAIN=${1:-"onlineschool.com"}
@@ -14,8 +18,8 @@ echo "Using domain: $DOMAIN"
 # --- Cleanup (if needed) ---
 cd "$TF_CONFIG_DIR_DEPLOYMENT" || exit 1  # Exit if cd fails
 # Example: Destroy the 'clean' resources (adapt to your actual setup)
-tofu destroy -auto-approve
-bash ../scripts/cleantf.sh
+tofu destroy -auto-approve >/dev/null 2>&1 || true
+bash "${SCRIPT_DIR}/cleantf.sh"
 
 # --- Terraform/Tofu ---
 cd "$TF_CONFIG_DIR_DEPLOYMENT" || exit 1  # Ensure we're in the correct directory
@@ -28,8 +32,8 @@ if ! tofu apply -auto-approve; then
 fi
 
 # --- WireGuard and Inventory ---
-bash ../scripts/wg.sh
-bash ../scripts/generate-inventory.sh
+bash "${SCRIPT_DIR}/wg.sh"
+bash "${SCRIPT_DIR}/generate-inventory.sh"
 
 # --- Ansible ---
 cd "$TF_CONFIG_DIR_KUBERNETES" || exit 1  # Ensure we're in the correct directory
@@ -83,7 +87,7 @@ fi
 
 # Configure DNS
 echo "Configuring DNS for OpenEdX ($DOMAIN)..."
-bash ../scripts/configure-dns.sh "$DOMAIN"
+bash "${SCRIPT_DIR}/configure-dns.sh" "$DOMAIN"
 
 echo "Deployment completed successfully!"
 echo "OpenEdX will be available at: https://$DOMAIN"

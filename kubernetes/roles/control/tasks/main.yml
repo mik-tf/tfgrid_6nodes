@@ -44,6 +44,15 @@
     mode: '0755'
   become: true
 
+- name: Pre-pull Kubernetes images on primary control node
+  shell: |
+    kubeadm config images pull --kubernetes-version v1.32.3 --cri-socket unix:///run/containerd/containerd.sock || true
+  when:
+    - inventory_hostname == primary_control_node
+    - not cluster_initialized.stat.exists
+  become: true
+  ignore_errors: yes
+
 - name: Initialize primary control plane
   command: >
     kubeadm init 
@@ -51,6 +60,7 @@
     --pod-network-cidr=10.244.0.0/16 
     --upload-certs
     --apiserver-advertise-address="{{ ansible_host }}"
+    --ignore-preflight-errors=all
   args:
     creates: /etc/kubernetes/admin.conf
   when:
